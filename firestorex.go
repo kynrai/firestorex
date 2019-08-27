@@ -59,6 +59,7 @@ func BatchWrite(ctx context.Context, client *firestore.Client, collection string
 			}
 			d := v.Slice(i, end)
 			g.Go(func() error {
+				defer func() { <-throttle }()
 				throttle <- struct{}{}
 				batch := client.Batch()
 				for i := 0; i < d.Len(); i++ {

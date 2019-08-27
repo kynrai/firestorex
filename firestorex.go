@@ -45,6 +45,8 @@ func BatchWrite(ctx context.Context, client *firestore.Client, collection string
 	if data.Kind() != reflect.Slice {
 		return fmt.Errorf("v is expected to be a slice")
 	}
+
+	colRef := client.Collection(collection)
 	g, ctx := errgroup.WithContext(ctx)
 
 	batches := func(ctx context.Context, client *firestore.Client, v reflect.Value) error {
@@ -57,11 +59,13 @@ func BatchWrite(ctx context.Context, client *firestore.Client, collection string
 			}
 			d := v.Slice(i, end)
 			g.Go(func() error {
+				throttle <- struct{}{}
 				batch := client.Batch()
 				for i := 0; i < d.Len(); i++ {
-					d.Index(i).Interface()
+					batch.Set(colRef.NewDoc(), d.Index(i).Interface())
 				}
-				return nil
+				_, err := batch.Commit(ctx)
+				return err
 			})
 		}
 
